@@ -76,6 +76,8 @@ function generarPlantillaTurnos() {
   }));
 }
 
+let ultimoEstadoJSON = "";
+
 // Sincronizar reservas reales desde la nube
 async function sincronizarTurnosConLaNube(esSilencioso = false) {
   const statusIndicator = document.getElementById("syncStatusIndicator");
@@ -114,13 +116,18 @@ async function sincronizarTurnosConLaNube(esSilencioso = false) {
       });
     }
 
-    turnosGlobales = nuevaLista;
-    guardarRespaldoLocal(turnosGlobales);
+    const estadoSerializado = JSON.stringify(nuevaLista);
+    // Solo re-renderizar si hubo un cambio real en los datos para máxima fluidez
+    if (estadoSerializado !== ultimoEstadoJSON) {
+      ultimoEstadoJSON = estadoSerializado;
+      turnosGlobales = nuevaLista;
+      guardarRespaldoLocal(turnosGlobales);
+      renderizarTurnos();
+    }
 
     if (statusIndicator) {
       statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado en Vivo (Nube)`;
     }
-    renderizarTurnos();
   } catch (error) {
     console.warn("Fallo de red en nube, manteniendo estado activo:", error);
     if (statusIndicator) {
@@ -200,7 +207,6 @@ function renderizarTurnos() {
   let countDisponibles = 0;
   let countOcupados = 0;
 
-  const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
