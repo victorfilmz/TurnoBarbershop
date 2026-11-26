@@ -1,10 +1,15 @@
-// ==========================================
-// VIP BARBER CLUB - SISTEMA DE TURNOS DIARIOS
-// ==========================================
+// ==============================================================
+// VIP BARBER CLUB - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS
+// Base de datos en la NUBE (Sincronización en vivo entre teléfonos)
+// ==============================================================
 
 const WHATSAPP_BARBERO = "18293407096";
 
-// Horario: 9:00 AM a 8:00 PM cada 30 minutos (22 turnos por día)
+// Objeto de almacenamiento en la nube global compartido por todos los celulares
+const CLOUD_OBJECT_ID = "ff808181a09d98f701a219a8abc959ac";
+const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
+
+// 22 turnos de 9:00 AM a 8:00 PM (cada 30 min)
 const TURNOS_HORARIOS = [
   "09:00 AM", "09:30 AM",
   "10:00 AM", "10:30 AM",
@@ -19,39 +24,39 @@ const TURNOS_HORARIOS = [
   "07:00 PM", "07:30 PM"
 ];
 
+let turnosGlobales = [];
 let turnoSeleccionadoHora = null;
 let filtroActual = "todos";
+let estaGuardando = false;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   iniciarReloj();
   mostrarFechaHoy();
-  verificarReinicioDiario();
-  renderizarTurnos();
+  
+  // Cargar estado inicial desde la nube
+  await sincronizarTurnosConLaNube();
+  
+  // Polling automático cada 4 segundos para actualizar si alguien reserva en otro móvil
+  setInterval(async () => {
+    if (!estaGuardando && !document.getElementById("bookingModal").classList.contains("opacity-100")) {
+      await sincronizarTurnosConLaNube(true);
+    }
+  }, 4000);
 });
 
-// Obtener clave del día (ej: "turnos_2026-11-26")
-function getTodayKey() {
+// Obtener fecha actual en formato YYYY-MM-DD
+function getTodayString() {
   const hoy = new Date();
   const yyyy = hoy.getFullYear();
   const mm = String(hoy.getMonth() + 1).padStart(2, "0");
   const dd = String(hoy.getDate()).padStart(2, "0");
-  return `barbershop_turnos_${yyyy}-${mm}-${dd}`;
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-// Cargar o inicializar turnos de hoy
-function obtenerTurnosHoy() {
-  const key = getTodayKey();
-  const guardados = localStorage.getItem(key);
-
-  if (guardados) {
-    try {
-      return JSON.parse(guardados);
-    } catch(e) {}
-  }
-
-  // Generar lista limpia para el día
-  const turnosIniciales = TURNOS_HORARIOS.map((hora, index) => ({
-    id: index + 1,
+// Generar plantilla limpia de turnos
+function generarPlantillaTurnos() {
+  return TURNOS_HORARIOS.map((hora, idx) => ({
+    id: idx + 1,
     hora: hora,
     ocupado: false,
     cliente: null,
@@ -59,62 +64,93 @@ function obtenerTurnosHoy() {
     servicio: null,
     horaReserva: null
   }));
-
-  localStorage.setItem(key, JSON.stringify(turnosIniciales));
-  return turnosIniciales;
 }
 
-function guardarTurnosHoy(turnos) {
-  const key = getTodayKey();
-  localStorage.setItem(key, JSON.stringify(turnos));
-}
+// Sincronizar lectura con la nube
+async function sincronizarTurnosConLaNube(esSilencioso = false) {
+  const statusIndicator = document.getElementById("syncStatusIndicator");
+  if (statusIndicator && !esSilencioso) {
+    statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span> Sincronizando...`;
+  }
 
-// Limpiar días anteriores para no llenar almacenamiento
-function verificarReinicioDiario() {
-  const keyHoy = getTodayKey();
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith("barbershop_turnos_") && k !== keyHoy) {
-      localStorage.removeItem(k);
+  const hoyStr = getTodayString();
+
+  try {
+    const res = await fetch(CLOUD_API_URL);
+    if (!res.ok) throw new Error("Error en red nube");
+    const json = await res.json();
+
+    // Si los turnos guardados en la nube son de hoy, usarlos; si son de ayer, reiniciar automáticamente
+    if (json.data && json.data.fecha === hoyStr && Array.isArray(json.data.turnos)) {
+      turnosGlobales = json.data.turnos;
+    } else {
+      // Es un nuevo día: reiniciar todos los turnos
+      turnosGlobales = generarPlantillaTurnos();
+      await enviarTurnosALaNube(turnosGlobales, hoyStr);
+    }
+
+    if (statusIndicator) {
+      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado en Vivo (Nube)`;
+    }
+    renderizarTurnos();
+  } catch (error) {
+    console.warn("Fallo temporal sincronizando con la nube, usando respaldo local:", error);
+    // Respaldo localStorage si no hay internet
+    if (turnosGlobales.length === 0) {
+      const backup = localStorage.getItem("backup_turnos_" + hoyStr);
+      turnosGlobales = backup ? JSON.parse(backup) : generarPlantillaTurnos();
+      renderizarTurnos();
+    }
+    if (statusIndicator) {
+      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> Modo sin conexión`;
     }
   }
 }
 
-// Mostrar fecha en español en cabecera
-function mostrarFechaHoy() {
-  const hoy = new Date();
-  const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const str = hoy.toLocaleDateString('es-ES', opciones);
-  document.getElementById("currentDateStr").textContent = "Turnos para hoy: " + str.charAt(0).toUpperCase() + str.slice(1);
-}
+// Enviar actualización a la nube (para que todos los móviles lo vean)
+async function enviarTurnosALaNube(turnos, fecha) {
+  estaGuardando = true;
+  const hoyStr = fecha || getTodayString();
 
-// Reloj en tiempo real
-function iniciarReloj() {
-  const clockEl = document.getElementById("liveClock");
-  const tick = () => {
-    const now = new Date();
-    clockEl.textContent = now.toLocaleTimeString('es-ES', { hour12: true });
-  };
-  tick();
-  setInterval(tick, 1000);
+  try {
+    const payload = {
+      name: "barbershop_turnos_" + hoyStr,
+      data: {
+        fecha: hoyStr,
+        turnos: turnos,
+        ultimaActualizacion: new Date().toISOString()
+      }
+    };
+
+    const res = await fetch(CLOUD_API_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      localStorage.setItem("backup_turnos_" + hoyStr, JSON.stringify(turnos));
+    }
+  } catch (err) {
+    console.error("Error guardando en la nube:", err);
+  } finally {
+    estaGuardando = false;
+  }
 }
 
 // Renderizar la lista de turnos en pantalla
 function renderizarTurnos() {
-  const turnos = obtenerTurnosHoy();
   const grid = document.getElementById("turnosGrid");
   grid.innerHTML = "";
 
   let countDisponibles = 0;
   let countOcupados = 0;
 
-  // Evaluar estado según la hora actual
   const now = new Date();
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
 
-  turnos.forEach(turno => {
-    // Calcular si la hora ya pasó
+  turnosGlobales.forEach(turno => {
     const horaObj = parseHoraTurno(turno.hora);
     const yaPaso = (currentHour > horaObj.hour) || (currentHour === horaObj.hour && currentMinute >= horaObj.minute);
 
@@ -124,34 +160,35 @@ function renderizarTurnos() {
       countDisponibles++;
     }
 
-    // Aplicar filtros
     if (filtroActual === "disponibles" && (turno.ocupado || yaPaso)) return;
     if (filtroActual === "ocupados" && !turno.ocupado) return;
 
-    // Crear Card de Turno
     const card = document.createElement("div");
     card.className = "bg-[#131722] border rounded-2xl p-4 flex flex-col justify-between transition-all duration-300 relative overflow-hidden";
 
     if (turno.ocupado) {
-      // ESTADO: OCUPADO
-      card.classList.add("border-rose-500/30", "bg-rose-950/10");
+      card.classList.add("border-rose-500/40", "bg-rose-950/20");
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
           <div>
-            <span class="text-xs uppercase tracking-wider text-rose-400 font-bold block">
+            <span class="text-[11px] uppercase tracking-wider text-rose-400 font-extrabold block flex items-center gap-1">
               <i class="fas fa-lock"></i> Ocupado (Bloqueado)
             </span>
             <h3 class="text-xl font-black text-white font-heading mt-0.5">${turno.hora}</h3>
           </div>
-          <span class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold">
+          <span class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs font-bold border border-rose-500/30">
             🔴
           </span>
         </div>
 
-        <div class="my-3 py-2.5 px-3 bg-black/40 rounded-xl border border-white/5">
-          <p class="text-xs text-slate-400">Tomado por:</p>
-          <p class="text-sm font-extrabold text-white truncate"><i class="fas fa-user-check text-rose-400 mr-1.5"></i>${turno.cliente}</p>
-          <p class="text-[11px] text-barber-gold font-medium mt-1 truncate">${turno.servicio || 'Servicio Barbería'}</p>
+        <div class="my-3 py-2.5 px-3 bg-black/50 rounded-xl border border-white/5">
+          <p class="text-[10px] uppercase font-bold text-slate-400">Turno tomado por:</p>
+          <p class="text-sm font-black text-white truncate flex items-center gap-1.5 mt-0.5">
+            <i class="fas fa-user-check text-rose-400"></i> ${turno.cliente}
+          </p>
+          <p class="text-[11px] text-barber-gold font-medium mt-1 truncate">
+            ${turno.servicio || 'Corte de Barbería'}
+          </p>
         </div>
 
         <div class="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-500">
@@ -160,7 +197,6 @@ function renderizarTurnos() {
         </div>
       `;
     } else if (yaPaso) {
-      // ESTADO: HORA PASADA
       card.classList.add("border-white/5", "opacity-50", "bg-black/20");
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
@@ -176,7 +212,6 @@ function renderizarTurnos() {
         </button>
       `;
     } else {
-      // ESTADO: DISPONIBLE
       card.classList.add("border-emerald-500/30", "hover:border-barber-gold", "hover:shadow-xl", "hover:shadow-barber-gold/5", "group");
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
@@ -186,7 +221,7 @@ function renderizarTurnos() {
             </span>
             <h3 class="text-xl font-black text-white font-heading mt-0.5 group-hover:text-barber-gold transition">${turno.hora}</h3>
           </div>
-          <span class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
+          <span class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold border border-emerald-500/30">
             🟢
           </span>
         </div>
@@ -206,7 +241,6 @@ function renderizarTurnos() {
     grid.appendChild(card);
   });
 
-  // Actualizar métricas
   document.getElementById("statDisponibles").textContent = countDisponibles;
   document.getElementById("statOcupados").textContent = countOcupados;
 }
@@ -231,17 +265,19 @@ function abrirBookingModal(hora) {
   document.getElementById("modalTurnoHora").textContent = `Horario seleccionado: ${hora}`;
   const modal = document.getElementById("bookingModal");
   modal.classList.remove("opacity-0", "pointer-events-none");
+  modal.classList.add("opacity-100");
 }
 
 function cerrarBookingModal() {
   const modal = document.getElementById("bookingModal");
   modal.classList.add("opacity-0", "pointer-events-none");
+  modal.classList.remove("opacity-100");
   document.getElementById("bookingForm").reset();
   turnoSeleccionadoHora = null;
 }
 
-// Confirmación de reserva
-function confirmarReservaTurno(e) {
+// Confirmar reserva en la nube y enviar a WhatsApp
+async function confirmarReservaTurno(e) {
   e.preventDefault();
 
   const nombre = document.getElementById("clienteNombre").value.trim();
@@ -253,30 +289,33 @@ function confirmarReservaTurno(e) {
     return;
   }
 
-  const turnos = obtenerTurnosHoy();
-  const index = turnos.findIndex(t => t.hora === turnoSeleccionadoHora);
+  // Verificar en tiempo real con la nube si no lo tomó otra persona en el último segundo
+  await sincronizarTurnosConLaNube(true);
 
+  const index = turnosGlobales.findIndex(t => t.hora === turnoSeleccionadoHora);
   if (index === -1) return;
 
-  if (turnos[index].ocupado) {
-    alert("Lo sentimos, este turno acaba de ser tomado por otra persona.");
+  if (turnosGlobales[index].ocupado) {
+    alert(`¡Ups! El turno de las ${turnoSeleccionadoHora} acaba de ser reservado por otro cliente (${turnosGlobales[index].cliente}). Por favor elige otro horario disponible.`);
     cerrarBookingModal();
     renderizarTurnos();
     return;
   }
 
-  // Registrar reserva y bloquear turno por todo el día
-  turnos[index].ocupado = true;
-  turnos[index].cliente = nombre;
-  turnos[index].telefono = telefono;
-  turnos[index].servicio = servicio;
-  turnos[index].horaReserva = new Date().toISOString();
+  // Bloquear turno en la lista global
+  turnosGlobales[index].ocupado = true;
+  turnosGlobales[index].cliente = nombre;
+  turnosGlobales[index].telefono = telefono;
+  turnosGlobales[index].servicio = servicio;
+  turnosGlobales[index].horaReserva = new Date().toISOString();
 
-  guardarTurnosHoy(turnos);
+  // Guardar en la NUBE para todos los teléfonos
+  await enviarTurnosALaNube(turnosGlobales);
+
   cerrarBookingModal();
   renderizarTurnos();
 
-  // Enviar mensaje formateado a WhatsApp
+  // Enviar confirmación a WhatsApp
   const mensaje = 
 `💈 *¡NUEVO TURNO CONFIRMADO - VIP BARBER CLUB!* 💈
 ━━━━━━━━━━━━━━━━━━━━
@@ -315,4 +354,23 @@ function filtrarTurnos(tipo) {
   }
 
   renderizarTurnos();
+}
+
+// Reloj en tiempo real
+function iniciarReloj() {
+  const clockEl = document.getElementById("liveClock");
+  const tick = () => {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('es-ES', { hour12: true });
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+// Mostrar fecha en español en cabecera
+function mostrarFechaHoy() {
+  const hoy = new Date();
+  const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const str = hoy.toLocaleDateString('es-ES', opciones);
+  document.getElementById("currentDateStr").textContent = "Turnos para hoy: " + str.charAt(0).toUpperCase() + str.slice(1);
 }
