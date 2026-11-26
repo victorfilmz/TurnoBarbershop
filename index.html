@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VIP Barber Club | Sistema de Turnos en Vivo</title>
+  <title>Leandro Barbershop | Sistema de Turnos en Vivo</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -76,10 +76,11 @@
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col selection:bg-barber-gold selection:text-black">
 
-  <!-- TOP NOTICE BAR: REGLA DE 10 MINUTOS -->
-  <div class="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 text-black py-2.5 px-4 text-xs sm:text-sm font-extrabold text-center flex items-center justify-center gap-2 shadow-lg">
-    <i class="fas fa-clock text-base animate-pulse"></i>
-    <span>REGLA OFICIAL: Debes presentarte al menos 10 minutos antes de tu turno o quedará liberado automáticamente para otro cliente.</span>
+  <!-- TOP NOTICE BAR: HORARIO & REGLAS -->
+  <div class="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 text-black py-2.5 px-4 text-xs sm:text-sm font-extrabold text-center flex flex-wrap items-center justify-center gap-2 shadow-lg">
+    <span><i class="fas fa-calendar-times mr-1"></i> Lunes CERRADO.</span>
+    <span><i class="fas fa-utensils mr-1"></i> Almuerzo: 1:00 PM a 2:30 PM.</span>
+    <span><i class="fas fa-clock mr-1 animate-pulse"></i> Presentarse al menos 10 minutos antes de su turno.</span>
   </div>
 
   <!-- HEADER -->
@@ -93,9 +94,9 @@
         </div>
         <div>
           <h1 class="text-xl sm:text-2xl font-black text-white font-heading tracking-tight flex items-center gap-1.5">
-            VIP BARBER <span class="text-barber-gold">CLUB</span>
+            LEANDRO <span class="text-barber-gold">BARBERSHOP</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium">Turnos cada 30 min &middot; 9:00 AM a 8:00 PM</p>
+          <p class="text-[11px] text-slate-400 font-medium">Martes a Domingo: 9:00 AM - 9:00 PM &middot; Lunes Cerrado</p>
         </div>
       </div>
 
@@ -139,7 +140,7 @@
           <div class="grid grid-cols-3 gap-3 w-full sm:w-auto">
             <div class="bg-[#131722] border border-white/10 rounded-2xl p-3 text-center">
               <span class="text-[11px] text-slate-400 block font-medium">Total</span>
-              <span class="text-lg sm:text-xl font-black text-white font-heading">22</span>
+              <span class="text-lg sm:text-xl font-black text-white font-heading">20</span>
             </div>
             <div class="bg-[#131722] border border-emerald-500/20 rounded-2xl p-3 text-center">
               <span class="text-[11px] text-emerald-400 block font-medium">Libres</span>
@@ -162,7 +163,7 @@
     <div class="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-white/5 flex-wrap">
       <div class="flex items-center gap-2">
         <button onclick="filtrarTurnos('todos')" id="btnFilterTodos" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-barber-gold text-black shadow-md">
-          Todos los Turnos (22)
+          Todos los Turnos (20)
         </button>
         <button onclick="filtrarTurnos('disponibles')" id="btnFilterDisponibles" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#141822] text-slate-300 hover:text-white border border-white/5">
           🟢 Solo Disponibles
@@ -274,11 +275,11 @@
   <footer class="border-t border-white/10 bg-[#0d0f14] py-8 text-xs text-slate-400 text-center">
     <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
       <div>
-        <span class="font-heading font-black text-white text-base">VIP BARBER <span class="text-barber-gold">CLUB</span></span>
-        <p class="text-slate-500 text-[11px] mt-0.5">Sistema de Gestión de Citas y Turnos Diarios &copy; 2026</p>
+        <span class="font-heading font-black text-white text-base">LEANDRO <span class="text-barber-gold">BARBERSHOP</span></span>
+        <p class="text-slate-500 text-[11px] mt-0.5">Gestión de Citas y Turnos Diarios &copy; 2026</p>
       </div>
       <div class="flex items-center gap-4 text-xs font-bold text-slate-300">
-        <span class="text-emerald-400"><i class="fas fa-door-open"></i> Lunes a Domingo: 9:00 AM - 8:00 PM</span>
+        <span class="text-emerald-400"><i class="fas fa-door-open"></i> Martes a Domingo: 9:00 AM - 9:00 PM (Lunes Cerrado)</span>
         <a href="https://wa.me/18293407096" target="_blank" class="text-barber-gold hover:underline">
           <i class="fab fa-whatsapp"></i> 829-340-7096
         </a>
@@ -286,6 +287,6 @@
     </div>
   </footer>
 
-  <script src="turnos.js?v=3.0.0"></script>
+  <script src="turnos.js?v=3.1.0"></script>
 </body>
 </html>

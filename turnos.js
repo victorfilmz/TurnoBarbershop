@@ -1,27 +1,30 @@
 // =======================================================================
-// VIP BARBER CLUB - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
+// LEANDRO BARBERSHOP - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
 // Motor Híbrido Resiliente: Cloud Database + Local Fallback + Auto-Retry
-// 100% Estable, sin bloqueos de peticiones ni límites 429
 // =======================================================================
 
 const WHATSAPP_BARBERO = "18293407096";
 
-// Endpoint Cloud de alta disponibilidad (CORS habilitado, sin límites agresivos)
+// Endpoint Cloud de alta disponibilidad
 const CLOUD_API_BASE = "https://sheetdb.io/api/v1/58f61be4dda40";
 
-// 22 turnos de 9:00 AM a 8:00 PM (cada 30 min)
+// HORARIOS EXACTOS INDICADOS:
+// - Apertura 9:00 AM, primer cliente a las 9:30 AM
+// - Break de almuerzo: 1:00 PM a 2:30 PM (retoma a las 2:30 PM)
+// - Cierre a las 9:00 PM (último turno 8:30 PM para salir a las 9:00 PM)
 const TURNOS_HORARIOS = [
-  "09:00 AM", "09:30 AM",
+  "09:30 AM",
   "10:00 AM", "10:30 AM",
   "11:00 AM", "11:30 AM",
   "12:00 PM", "12:30 PM",
-  "01:00 PM", "01:30 PM",
-  "02:00 PM", "02:30 PM",
+  // 01:00 PM a 02:30 PM -> BREAK DE ALMUERZO
+  "02:30 PM",
   "03:00 PM", "03:30 PM",
   "04:00 PM", "04:30 PM",
   "05:00 PM", "05:30 PM",
   "06:00 PM", "06:30 PM",
-  "07:00 PM", "07:30 PM"
+  "07:00 PM", "07:30 PM",
+  "08:00 PM", "08:30 PM"
 ];
 
 let turnosGlobales = [];
@@ -168,6 +171,31 @@ async function publicarReservaEnLaNube(payloadReserva) {
 function renderizarTurnos() {
   const grid = document.getElementById("turnosGrid");
   grid.innerHTML = "";
+
+  const now = new Date();
+  const diaSemana = now.getDay(); // 1 = Lunes
+
+  // SI ES LUNES: LA BARBERÍA ESTÁ CERRADA
+  if (diaSemana === 1) {
+    grid.innerHTML = `
+      <div class="col-span-full bg-[#161a24] border border-amber-500/30 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-2xl">
+        <div class="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl mb-4">
+          😴
+        </div>
+        <span class="text-xs font-bold uppercase tracking-widest text-amber-400">Día de Descanso</span>
+        <h3 class="text-2xl sm:text-3xl font-black text-white font-heading mt-2">Los lunes estamos cerrados</h3>
+        <p class="text-slate-400 text-sm mt-3 leading-relaxed">
+          Hoy lunes no laboramos. Te esperamos mañana martes a partir de las <strong>9:00 AM</strong> (primer turno disponible a las 9:30 AM).
+        </p>
+        <div class="mt-6 pt-6 border-t border-white/10 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <i class="fas fa-calendar-alt text-amber-400"></i> Horario: Martes a Domingo (9:00 AM a 9:00 PM)
+        </div>
+      </div>
+    `;
+    document.getElementById("statDisponibles").textContent = "0";
+    document.getElementById("statOcupados").textContent = "0";
+    return;
+  }
 
   let countDisponibles = 0;
   let countOcupados = 0;
@@ -349,7 +377,7 @@ async function confirmarReservaTurno(e) {
 
   // Enviar confirmación a WhatsApp
   const mensaje = 
-`💈 *¡NUEVO TURNO CONFIRMADO - VIP BARBER CLUB!* 💈
+`💈 *¡NUEVO TURNO CONFIRMADO - LEANDRO BARBERSHOP!* 💈
 ━━━━━━━━━━━━━━━━━━━━
 👤 *Cliente:* ${nombre}
 📱 *Teléfono:* ${telefono}
@@ -359,7 +387,7 @@ async function confirmarReservaTurno(e) {
 ⚠️ *RECORDATORIO OBLIGATORIO:*
 Debes presentarte en la barbería al menos *10 minutos antes* (${horaGuardada}) o tu turno quedará liberado automáticamente para el siguiente cliente en espera.
 ━━━━━━━━━━━━━━━━━━━━
-¡Gracias por reservar con nosotros! Nos vemos en el sillón 💈🔥`;
+¡Gracias por reservar en Leandro Barbershop! Nos vemos en el sillón 💈🔥`;
 
   const url = `https://wa.me/${WHATSAPP_BARBERO}?text=${encodeURIComponent(mensaje)}`;
   window.open(url, "_blank");
@@ -410,16 +438,16 @@ function mostrarFechaHoy() {
 // Respaldo local
 function guardarRespaldoLocal(turnos) {
   try {
-    localStorage.setItem("vip_barber_turnos_" + getTodayString(), JSON.stringify(turnos));
+    localStorage.setItem("leandro_barber_turnos_" + getTodayString(), JSON.stringify(turnos));
   } catch(e) {}
 }
 
 function recuperarRespaldoLocal() {
   try {
-    const saved = localStorage.getItem("vip_barber_turnos_" + getTodayString());
+    const saved = localStorage.getItem("leandro_barber_turnos_" + getTodayString());
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length === 22) {
+      if (Array.isArray(parsed) && parsed.length === TURNOS_HORARIOS.length) {
         turnosGlobales = parsed;
       }
     }
