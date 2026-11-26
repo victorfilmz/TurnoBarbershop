@@ -3,7 +3,7 @@
 // Motor Híbrido Resiliente: Cloud Database + Local Fallback + Auto-Retry
 // =======================================================================
 
-const WHATSAPP_BARBERO = "18293407096";
+const WHATSAPP_BARBERO = "18097686713";
 
 // Endpoint Cloud de alta disponibilidad
 const CLOUD_API_BASE = "https://sheetdb.io/api/v1/58f61be4dda40";

@@ -3,7 +3,7 @@
 Sistema web inteligente y en tiempo real para barberías modernas. Permite a los clientes tomar turnos disponibles cada 30 minutos, ver quién tomó cada turno y recibir confirmación inmediata por WhatsApp con reglas estrictas de puntualidad.
 
 Repositorio Oficial: [https://github.com/victorfilmz/TurnoBarbershop](https://github.com/victorfilmz/TurnoBarbershop)  
-WhatsApp Oficial: [1-829-340-7096](https://wa.me/18293407096)
+WhatsApp Oficial: [1-809-768-6713](https://wa.me/18097686713)
 
 ---
 
@@ -18,7 +18,7 @@ WhatsApp Oficial: [1-829-340-7096](https://wa.me/18293407096)
 4. **Regla de 10 Minutos:**
    - Todo cliente debe estar en el local con al menos **10 minutos de anticipación** a la hora indicada o su turno queda automáticamente liberado para otro cliente en espera.
 5. **Confirmación Inmediata a WhatsApp:**
-   - Notificación estructurada directo al barbero y al cliente al número **18293407096**.
+   - Notificación estructurada directo al barbero y al cliente al número **18097686713**.
 
 ---
 
