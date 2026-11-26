@@ -1,5 +1,5 @@
 // =======================================================================
-// LEANDRO BARBERSHOP - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
+// LEO BARBER SHOP - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
 // Motor Híbrido Resiliente: Cloud Database + Local Fallback + Auto-Retry
 // =======================================================================
 
@@ -383,7 +383,7 @@ async function confirmarReservaTurno(e) {
 
   // Enviar confirmación a WhatsApp
   const mensaje = 
-`💈 *¡NUEVO TURNO CONFIRMADO - LEANDRO BARBERSHOP!* 💈
+`💈 *¡NUEVO TURNO CONFIRMADO - LEO BARBER SHOP!* 💈
 ━━━━━━━━━━━━━━━━━━━━
 👤 *Cliente:* ${nombre}
 📱 *Teléfono:* ${telefono}
@@ -393,7 +393,7 @@ async function confirmarReservaTurno(e) {
 ⚠️ *RECORDATORIO OBLIGATORIO:*
 Debes presentarte en la barbería al menos *10 minutos antes* (${horaGuardada}) o tu turno quedará liberado automáticamente para el siguiente cliente en espera.
 ━━━━━━━━━━━━━━━━━━━━
-¡Gracias por reservar en Leandro Barbershop! Nos vemos en el sillón 💈🔥`;
+¡Gracias por reservar en Leo Barber Shop! Nos vemos en el sillón 💈🔥`;
 
   const url = `https://wa.me/${WHATSAPP_BARBERO}?text=${encodeURIComponent(mensaje)}`;
   window.open(url, "_blank");
