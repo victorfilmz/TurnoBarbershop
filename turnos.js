@@ -1,13 +1,15 @@
-// ==============================================================
-// VIP BARBER CLUB - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS
-// Base de datos en la NUBE (Sincronización en vivo entre teléfonos)
-// ==============================================================
+// =======================================================================
+// VIP BARBER CLUB - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
+// Arquitectura Pub/Sub Event-Sourced sobre Nube Abierta (ntfy.sh cloud)
+// Funciona en todos los celulares (iPhone, Android, PC) sin límites de cuota
+// =======================================================================
 
 const WHATSAPP_BARBERO = "18293407096";
 
-// Objeto de almacenamiento en la nube global compartido por todos los celulares
-const CLOUD_OBJECT_ID = "ff808181a09d98f701a219a8abc959ac";
-const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_OBJECT_ID}`;
+// Canal global en la nube para sincronizar reservas en tiempo real entre teléfonos
+const CLOUD_TOPIC = "victorfilmz_barber_v1";
+const CLOUD_POST_URL = `https://ntfy.sh/${CLOUD_TOPIC}`;
+const CLOUD_POLL_URL = `https://ntfy.sh/${CLOUD_TOPIC}/json?poll=1&since=24h`;
 
 // 22 turnos de 9:00 AM a 8:00 PM (cada 30 min)
 const TURNOS_HORARIOS = [
@@ -27,21 +29,25 @@ const TURNOS_HORARIOS = [
 let turnosGlobales = [];
 let turnoSeleccionadoHora = null;
 let filtroActual = "todos";
-let estaGuardando = false;
+let estaEnviando = false;
 
 document.addEventListener("DOMContentLoaded", async () => {
   iniciarReloj();
   mostrarFechaHoy();
   
-  // Cargar estado inicial desde la nube
+  // Inicializar estado base
+  turnosGlobales = generarPlantillaTurnos();
+  renderizarTurnos();
+
+  // Cargar reservas en la nube y escuchar cambios en tiempo real
   await sincronizarTurnosConLaNube();
   
-  // Polling automático cada 4 segundos para actualizar si alguien reserva en otro móvil
+  // Refresco en vivo cada 3 segundos entre teléfonos
   setInterval(async () => {
-    if (!estaGuardando && !document.getElementById("bookingModal").classList.contains("opacity-100")) {
+    if (!estaEnviando && !document.getElementById("bookingModal").classList.contains("opacity-100")) {
       await sincronizarTurnosConLaNube(true);
     }
-  }, 4000);
+  }, 3000);
 });
 
 // Obtener fecha actual en formato YYYY-MM-DD
@@ -53,7 +59,7 @@ function getTodayString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Generar plantilla limpia de turnos
+// Generar plantilla de 22 turnos
 function generarPlantillaTurnos() {
   return TURNOS_HORARIOS.map((hora, idx) => ({
     id: idx + 1,
@@ -66,75 +72,78 @@ function generarPlantillaTurnos() {
   }));
 }
 
-// Sincronizar lectura con la nube
+// Sincronizar reservas reales desde la nube
 async function sincronizarTurnosConLaNube(esSilencioso = false) {
   const statusIndicator = document.getElementById("syncStatusIndicator");
   if (statusIndicator && !esSilencioso) {
-    statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span> Sincronizando...`;
+    statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span> Sincronizando nube...`;
   }
 
   const hoyStr = getTodayString();
 
   try {
-    const res = await fetch(CLOUD_API_URL);
-    if (!res.ok) throw new Error("Error en red nube");
-    const json = await res.json();
+    const res = await fetch(CLOUD_POLL_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("Error consultando nube");
 
-    // Si los turnos guardados en la nube son de hoy, usarlos; si son de ayer, reiniciar automáticamente
-    if (json.data && json.data.fecha === hoyStr && Array.isArray(json.data.turnos)) {
-      turnosGlobales = json.data.turnos;
-    } else {
-      // Es un nuevo día: reiniciar todos los turnos
-      turnosGlobales = generarPlantillaTurnos();
-      await enviarTurnosALaNube(turnosGlobales, hoyStr);
-    }
+    const text = await res.text();
+    const lineas = text.trim().split("\n");
+
+    // Reiniciar plantilla del día
+    const nuevaLista = generarPlantillaTurnos();
+
+    // Procesar cada reserva recibida en la nube para hoy
+    lineas.forEach(linea => {
+      if (!linea.trim()) return;
+      try {
+        const item = JSON.parse(linea);
+        if (item.event === "message" && item.message) {
+          const payload = JSON.parse(item.message);
+          if (payload.action === "reservar" && payload.fecha === hoyStr) {
+            const idx = nuevaLista.findIndex(t => t.hora === payload.hora);
+            if (idx !== -1) {
+              nuevaLista[idx].ocupado = true;
+              nuevaLista[idx].cliente = payload.cliente;
+              nuevaLista[idx].telefono = payload.telefono;
+              nuevaLista[idx].servicio = payload.servicio;
+              nuevaLista[idx].horaReserva = payload.horaReserva;
+            }
+          }
+        }
+      } catch (e) {
+        // Ignorar líneas corruptas o de prueba
+      }
+    });
+
+    turnosGlobales = nuevaLista;
 
     if (statusIndicator) {
       statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado en Vivo (Nube)`;
     }
     renderizarTurnos();
   } catch (error) {
-    console.warn("Fallo temporal sincronizando con la nube, usando respaldo local:", error);
-    // Respaldo localStorage si no hay internet
-    if (turnosGlobales.length === 0) {
-      const backup = localStorage.getItem("backup_turnos_" + hoyStr);
-      turnosGlobales = backup ? JSON.parse(backup) : generarPlantillaTurnos();
-      renderizarTurnos();
-    }
+    console.warn("Fallo temporal sincronizando con la nube:", error);
     if (statusIndicator) {
-      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span> Modo sin conexión`;
+      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> Conexión inestable`;
     }
   }
 }
 
-// Enviar actualización a la nube (para que todos los móviles lo vean)
-async function enviarTurnosALaNube(turnos, fecha) {
-  estaGuardando = true;
-  const hoyStr = fecha || getTodayString();
-
+// Enviar nueva reserva a la nube para que se refleje en TODOS los móviles
+async function publicarReservaEnLaNube(reserva) {
+  estaEnviando = true;
   try {
-    const payload = {
-      name: "barbershop_turnos_" + hoyStr,
-      data: {
-        fecha: hoyStr,
-        turnos: turnos,
-        ultimaActualizacion: new Date().toISOString()
-      }
-    };
-
-    const res = await fetch(CLOUD_API_URL, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+    await fetch(CLOUD_POST_URL, {
+      method: "POST",
+      headers: {
+        "Title": "ReservaTurno",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(reserva)
     });
-
-    if (res.ok) {
-      localStorage.setItem("backup_turnos_" + hoyStr, JSON.stringify(turnos));
-    }
   } catch (err) {
-    console.error("Error guardando en la nube:", err);
+    console.error("Error publicando en la nube:", err);
   } finally {
-    estaGuardando = false;
+    estaEnviando = false;
   }
 }
 
@@ -245,7 +254,7 @@ function renderizarTurnos() {
   document.getElementById("statOcupados").textContent = countOcupados;
 }
 
-// Convertir hora tipo "09:30 AM" a horas y minutos 24h
+// Convertir hora tipo "09:30 AM" a 24 horas
 function parseHoraTurno(horaStr) {
   const partes = horaStr.split(" ");
   const tiempo = partes[0].split(":");
@@ -302,15 +311,24 @@ async function confirmarReservaTurno(e) {
     return;
   }
 
-  // Bloquear turno en la lista global
+  const payloadReserva = {
+    action: "reservar",
+    fecha: getTodayString(),
+    hora: turnoSeleccionadoHora,
+    cliente: nombre,
+    telefono: telefono,
+    servicio: servicio,
+    horaReserva: new Date().toISOString()
+  };
+
+  // Bloquear localmente de inmediato para feedback instantáneo
   turnosGlobales[index].ocupado = true;
   turnosGlobales[index].cliente = nombre;
   turnosGlobales[index].telefono = telefono;
   turnosGlobales[index].servicio = servicio;
-  turnosGlobales[index].horaReserva = new Date().toISOString();
 
-  // Guardar en la NUBE para todos los teléfonos
-  await enviarTurnosALaNube(turnosGlobales);
+  // PUBLICAR EN LA NUBE PARA QUE TODOS LOS DEMÁS MÓVILES SE ENTEREN
+  await publicarReservaEnLaNube(payloadReserva);
 
   cerrarBookingModal();
   renderizarTurnos();
