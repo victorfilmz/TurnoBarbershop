@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIP Barber Club | Sistema de Turnos en Vivo</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            title: ['Outfit', 'sans-serif'],
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            barber: {
+              gold: '#D4AF37',
+              darkgold: '#AA820A',
+              dark: '#0B0D11',
+              card: '#131720',
+              border: '#1F2533',
+              red: '#E63946',
+              blue: '#1D3557',
+              green: '#25D366'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0b0d11; }
+    h1, h2, h3, h4, .font-heading { font-family: 'Outfit', sans-serif; }
+    
+    /* Barber Pole Animation */
+    .barber-pole {
+      background: repeating-linear-gradient(
+        45deg,
+        #e63946,
+        #e63946 12px,
+        #ffffff 12px,
+        #ffffff 24px,
+        #1d3557 24px,
+        #1d3557 36px,
+        #ffffff 36px,
+        #ffffff 48px
+      );
+      background-size: 68px 68px;
+      animation: barberMove 3s linear infinite;
+    }
+    @keyframes barberMove {
+      0% { background-position: 0 0; }
+      100% { background-position: 68px 0; }
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f1218;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #232a3b;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col selection:bg-barber-gold selection:text-black">
+
+  <!-- TOP NOTICE BAR: REGLA DE 10 MINUTOS -->
+  <div class="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 text-black py-2.5 px-4 text-xs sm:text-sm font-extrabold text-center flex items-center justify-center gap-2 shadow-lg">
+    <i class="fas fa-clock text-base animate-pulse"></i>
+    <span>REGLA OFICIAL: Debes presentarte al menos 10 minutos antes de tu turno o quedará liberado automáticamente para otro cliente.</span>
+  </div>
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-[#10141c]/95 backdrop-blur-md border-b border-white/10 shadow-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      
+      <!-- Logo y Barber Pole -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl overflow-hidden border border-barber-gold/40 shadow-lg shadow-barber-gold/10 relative flex-shrink-0">
+          <div class="w-full h-full barber-pole"></div>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-black text-white font-heading tracking-tight flex items-center gap-1.5">
+            VIP BARBER <span class="text-barber-gold">CLUB</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 font-medium">Turnos cada 30 min &middot; 9:00 AM a 8:00 PM</p>
+        </div>
+      </div>
+
+      <!-- Reloj en Vivo & WhatsApp Barbero -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex flex-col items-end">
+          <span class="text-xs text-slate-400">Hora actual:</span>
+          <span id="liveClock" class="text-sm font-bold text-barber-gold font-mono">--:--:--</span>
+        </div>
+
+        <a href="https://wa.me/18293407096" target="_blank" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-barber-green/15 border border-barber-green/40 text-barber-green hover:bg-barber-green hover:text-black text-xs font-bold transition">
+          <i class="fab fa-whatsapp text-base"></i>
+          <span class="hidden md:inline">+1 (829) 340-7096</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO & ESTADO DEL DÍA -->
+  <section class="border-b border-white/5 bg-gradient-to-b from-[#141824] to-[#0b0d11] py-8 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-slate-300 mb-3">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span id="currentDateStr">Cargando fecha de hoy...</span>
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-black text-white font-heading">
+            Toma tu turno para hoy <span class="text-transparent bg-clip-text bg-gradient-to-r from-barber-gold to-yellow-200">en tiempo real</span>
+          </h2>
+          <p class="text-slate-400 text-sm mt-2 max-w-xl">
+            Selecciona tu hora preferida. Los turnos ocupados son visibles para todos con el nombre del cliente y quedan bloqueados por todo el día.
+          </p>
+        </div>
+
+        <!-- Métricas Rápidas -->
+        <div class="grid grid-cols-3 gap-3 w-full md:w-auto">
+          <div class="bg-[#131722] border border-white/10 rounded-2xl p-3.5 text-center">
+            <span class="text-xs text-slate-400 block font-medium">Total Turnos</span>
+            <span class="text-xl sm:text-2xl font-black text-white font-heading">22</span>
+          </div>
+          <div class="bg-[#131722] border border-emerald-500/20 rounded-2xl p-3.5 text-center">
+            <span class="text-xs text-emerald-400 block font-medium">Disponibles</span>
+            <span id="statDisponibles" class="text-xl sm:text-2xl font-black text-emerald-400 font-heading">--</span>
+          </div>
+          <div class="bg-[#131722] border border-rose-500/20 rounded-2xl p-3.5 text-center">
+            <span class="text-xs text-rose-400 block font-medium">Ocupados</span>
+            <span id="statOcupados" class="text-xl sm:text-2xl font-black text-rose-400 font-heading">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO PRINCIPAL: PARRILLA DE TURNOS -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+    
+    <!-- Filtros de Disponibilidad -->
+    <div class="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-white/5 flex-wrap">
+      <div class="flex items-center gap-2">
+        <button onclick="filtrarTurnos('todos')" id="btnFilterTodos" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-barber-gold text-black shadow-md">
+          Todos los Turnos (22)
+        </button>
+        <button onclick="filtrarTurnos('disponibles')" id="btnFilterDisponibles" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#141822] text-slate-300 hover:text-white border border-white/5">
+          🟢 Solo Disponibles
+        </button>
+        <button onclick="filtrarTurnos('ocupados')" id="btnFilterOcupados" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#141822] text-slate-300 hover:text-white border border-white/5">
+          🔴 Ver Ocupados
+        </button>
+      </div>
+
+      <div class="flex items-center gap-4 text-xs text-slate-400">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500/30 border border-emerald-500"></span> Disponible</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-500/30 border border-rose-500"></span> Ocupado (Bloqueado)</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-slate-600/30 border border-slate-600"></span> Pasado</span>
+      </div>
+    </div>
+
+    <!-- GRID DE TURNOS (9:00 AM a 8:00 PM) -->
+    <div id="turnosGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <!-- Se generan con turnos.js -->
+    </div>
+
+  </main>
+
+  <!-- MODAL PARA TOMAR TURNO -->
+  <div id="bookingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-[#131722] border border-barber-gold/40 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+      
+      <!-- Encabezado Modal -->
+      <div class="p-6 bg-gradient-to-r from-[#171c2b] to-[#121620] border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-barber-gold/20 text-barber-gold flex items-center justify-center text-lg font-bold">
+            <i class="fas fa-cut"></i>
+          </div>
+          <div>
+            <h3 class="font-heading font-black text-white text-lg">Tomar Turno</h3>
+            <p class="text-xs text-barber-gold font-bold" id="modalTurnoHora">Hora: --</p>
+          </div>
+        </div>
+        <button onclick="cerrarBookingModal()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition">
+          <i class="fas fa-times text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Formulario -->
+      <form id="bookingForm" onsubmit="confirmarReservaTurno(event)" class="p-6 space-y-4">
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+            Nombre Completo del Cliente <span class="text-rose-400">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="clienteNombre" 
+            required 
+            placeholder="Ej: Carlos Santana"
+            class="w-full bg-[#1b2130] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-barber-gold focus:ring-1 focus:ring-barber-gold"
+          >
+          <p class="text-[11px] text-slate-400 mt-1">Este nombre se mostrará en la lista para que todos vean quién tiene el turno.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+            Teléfono / WhatsApp <span class="text-rose-400">*</span>
+          </label>
+          <input 
+            type="tel" 
+            id="clienteTelefono" 
+            required 
+            placeholder="Ej: 829-000-0000"
+            class="w-full bg-[#1b2130] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-barber-gold focus:ring-1 focus:ring-barber-gold"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+            Servicio a Realizar
+          </label>
+          <select id="clienteServicio" class="w-full bg-[#1b2130] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-barber-gold">
+            <option value="Corte de Pelo Clásico / Fade">✂️ Corte de Pelo Clásico / Fade ($400)</option>
+            <option value="Corte + Barba Completa">🧔 Corte + Perfilado de Barba ($600)</option>
+            <option value="Barba y Ritual de Toalla Caliente">🔥 Barba & Toalla Caliente ($350)</option>
+            <option value="Corte VIP Infantil">👦 Corte Infantil ($350)</option>
+            <option value="Lavado, Corte y Peinado">✨ Paquete VIP Completo ($800)</option>
+          </select>
+        </div>
+
+        <!-- Recordatorio regla de 10 min -->
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300 flex items-start gap-2.5">
+          <i class="fas fa-exclamation-triangle text-sm mt-0.5 text-amber-400 flex-shrink-0"></i>
+          <div>
+            <strong>Importante:</strong> Debes estar en la barbería al menos <strong>10 minutos antes</strong> de la hora del turno. Una vez reservado, no se puede modificar hasta mañana.
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          class="w-full py-3.5 bg-barber-gold hover:bg-yellow-400 text-black font-black rounded-2xl flex items-center justify-center gap-2 text-sm shadow-xl shadow-barber-gold/20 transition-all duration-200 mt-2"
+        >
+          <i class="fas fa-check-circle text-base"></i>
+          <span>Confirmar Turno y Enviar a WhatsApp</span>
+        </button>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/10 bg-[#0d0f14] py-8 text-xs text-slate-400 text-center">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <span class="font-heading font-black text-white text-base">VIP BARBER <span class="text-barber-gold">CLUB</span></span>
+        <p class="text-slate-500 text-[11px] mt-0.5">Sistema de Gestión de Citas y Turnos Diarios &copy; 2026</p>
+      </div>
+      <div class="flex items-center gap-4 text-xs font-bold text-slate-300">
+        <span class="text-emerald-400"><i class="fas fa-door-open"></i> Lunes a Domingo: 9:00 AM - 8:00 PM</span>
+        <a href="https://wa.me/18293407096" target="_blank" class="text-barber-gold hover:underline">
+          <i class="fab fa-whatsapp"></i> 829-340-7096
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="turnos.js"></script>
+</body>
+</html>
