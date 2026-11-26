@@ -322,6 +322,7 @@ async function confirmarReservaTurno(e) {
   };
 
   // Bloquear localmente de inmediato para feedback instantáneo
+  const horaGuardada = turnoSeleccionadoHora;
   turnosGlobales[index].ocupado = true;
   turnosGlobales[index].cliente = nombre;
   turnosGlobales[index].telefono = telefono;
@@ -334,16 +335,17 @@ async function confirmarReservaTurno(e) {
   renderizarTurnos();
 
   // Enviar confirmación a WhatsApp
+  const horaTexto = horaGuardada;
   const mensaje = 
 `💈 *¡NUEVO TURNO CONFIRMADO - VIP BARBER CLUB!* 💈
 ━━━━━━━━━━━━━━━━━━━━
 👤 *Cliente:* ${nombre}
 📱 *Teléfono:* ${telefono}
-🕒 *Turno Asignado:* ${turnoSeleccionadoHora} (Hoy)
+🕒 *Turno Asignado:* ${horaTexto} (Hoy)
 ✂️ *Servicio:* ${servicio}
 ━━━━━━━━━━━━━━━━━━━━
 ⚠️ *RECORDATORIO OBLIGATORIO:*
-Debes presentarte en la barbería al menos *10 minutos antes* (${turnoSeleccionadoHora}) o tu turno quedará liberado automáticamente para el siguiente cliente en espera.
+Debes presentarte en la barbería al menos *10 minutos antes* (${horaTexto}) o tu turno quedará liberado automáticamente para el siguiente cliente en espera.
 ━━━━━━━━━━━━━━━━━━━━
 ¡Gracias por reservar con nosotros! Nos vemos en el sillón 💈🔥`;
 
