@@ -8,10 +8,10 @@ const WHATSAPP_BARBERO = "18097686713";
 // Endpoint Cloud de alta disponibilidad
 const CLOUD_API_BASE = "https://sheetdb.io/api/v1/58f61be4dda40";
 
-// HORARIOS EXACTOS INDICADOS:
-// - Apertura 9:00 AM, primer cliente a las 9:30 AM
-// - Break de almuerzo: 1:00 PM a 2:30 PM (retoma a las 2:30 PM)
-// - Cierre a las 9:00 PM (último turno 8:30 PM para salir a las 9:00 PM)
+// HORARIOS EXACTOS DE LA NOTA DE VOZ:
+// - Apertura 9:00 AM, primer cliente entra 9:30 AM
+// - Break de almuerzo: 1:00 PM a 2:30 PM (retoma 2:30 PM)
+// - Cierre oficial: 9:00 PM (último turno 8:30 PM)
 const TURNOS_HORARIOS = [
   "09:30 AM",
   "10:00 AM", "10:30 AM",
@@ -214,13 +214,14 @@ function renderizarTurnos() {
     const horaObj = parseHoraTurno(turno.hora);
     const yaPaso = (currentHour > horaObj.hour) || (currentHour === horaObj.hour && currentMinute >= horaObj.minute);
 
+    // Todos los turnos del día están disponibles para reservarse por anticipado (desde la mañana para la noche)
     if (turno.ocupado) {
       countOcupados++;
-    } else if (!yaPaso) {
+    } else {
       countDisponibles++;
     }
 
-    if (filtroActual === "disponibles" && (turno.ocupado || yaPaso)) return;
+    if (filtroActual === "disponibles" && turno.ocupado) return;
     if (filtroActual === "ocupados" && !turno.ocupado) return;
 
     const card = document.createElement("div");
@@ -256,22 +257,8 @@ function renderizarTurnos() {
           <span class="text-rose-400 font-bold">Llegar 10 min antes</span>
         </div>
       `;
-    } else if (yaPaso) {
-      card.classList.add("border-white/5", "opacity-50", "bg-black/20");
-      card.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <span class="text-xs uppercase tracking-wider text-slate-500 font-bold block">Turno Vencido</span>
-            <h3 class="text-xl font-black text-slate-400 font-heading mt-0.5">${turno.hora}</h3>
-          </div>
-          <span class="text-xs text-slate-500 font-bold">⏳</span>
-        </div>
-        <p class="text-xs text-slate-500 my-4">Este horario ya transcurrió el día de hoy.</p>
-        <button disabled class="w-full py-2 bg-white/5 text-slate-600 rounded-xl text-xs font-bold cursor-not-allowed">
-          Hora Pasada
-        </button>
-      `;
     } else {
+      // DISPONIBLE: Se puede reservar en cualquier momento del día
       card.classList.add("border-emerald-500/30", "hover:border-barber-gold", "hover:shadow-xl", "hover:shadow-barber-gold/5", "group");
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
@@ -287,13 +274,13 @@ function renderizarTurnos() {
         </div>
 
         <div class="my-3 py-2 px-3 bg-white/5 rounded-xl text-xs text-slate-300">
-          <i class="fas fa-check-circle text-emerald-400 mr-1"></i> Libre para reservar ahora
+          <i class="fas fa-check-circle text-emerald-400 mr-1"></i> Libre para apartar hoy
           <p class="text-[11px] text-amber-300/80 mt-1"><i class="fas fa-clock mr-1"></i>Estar 10 min antes</p>
         </div>
 
         <button onclick="abrirBookingModal('${turno.hora}')" class="w-full py-2.5 bg-barber-gold hover:bg-yellow-400 text-black font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-barber-gold/20 active:scale-95 transition">
           <i class="fas fa-calendar-check"></i>
-          <span>Tomar este Turno</span>
+          <span>Apartar este Turno</span>
         </button>
       `;
     }
