@@ -163,8 +163,9 @@ function renderizarTurnos() {
 
   const now = new Date();
   const diaSemana = now.getDay(); // 1 = Lunes
+  const horaActual = now.getHours(); // 0 a 23
 
-  // SI ES LUNES: LA BARBERÍA ESTÁ CERRADA
+  // 1. SI ES LUNES: LA BARBERÍA ESTÁ CERRADA POR DÍA DE DESCANSO
   if (diaSemana === 1) {
     grid.innerHTML = `
       <div class="col-span-full bg-[#161a24] border border-amber-500/30 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-2xl">
@@ -174,10 +175,32 @@ function renderizarTurnos() {
         <span class="text-xs font-bold uppercase tracking-widest text-amber-400">Día de Descanso</span>
         <h3 class="text-2xl sm:text-3xl font-black text-white font-heading mt-2">Los lunes estamos cerrados</h3>
         <p class="text-slate-400 text-sm mt-3 leading-relaxed">
-          Hoy lunes no laboramos. Te esperamos mañana martes a partir de las <strong>9:00 AM</strong> (primer turno disponible a las 9:30 AM).
+          Hoy lunes no laboramos. Te esperamos mañana martes a partir de las <strong>9:00 AM</strong> (agenda abre a las 7:00 AM).
         </p>
         <div class="mt-6 pt-6 border-t border-white/10 flex items-center justify-center gap-2 text-xs text-slate-400">
           <i class="fas fa-calendar-alt text-amber-400"></i> Horario: Martes a Domingo (9:00 AM a 9:00 PM)
+        </div>
+      </div>
+    `;
+    document.getElementById("statDisponibles").textContent = "0";
+    document.getElementById("statOcupados").textContent = "0";
+    return;
+  }
+
+  // 2. ANTES DE LAS 7:00 AM: LA BARBERÍA ESTÁ DESCANSANDO (AGENDA CERRADA)
+  if (horaActual < 7) {
+    grid.innerHTML = `
+      <div class="col-span-full bg-[#141824] border border-indigo-500/30 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-2xl">
+        <div class="w-16 h-16 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto text-3xl mb-4 animate-pulse">
+          🌙
+        </div>
+        <span class="text-xs font-bold uppercase tracking-widest text-indigo-400">Horario Nocturno</span>
+        <h3 class="text-2xl sm:text-3xl font-black text-white font-heading mt-2">Estamos Descansando 😴</h3>
+        <p class="text-slate-400 text-sm mt-3 leading-relaxed">
+          Los turnos para el día de hoy se habilitan a partir de las <strong class="text-barber-gold font-bold">7:00 AM</strong>.
+        </p>
+        <div class="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 text-xs text-slate-300">
+          <i class="fas fa-clock text-indigo-400"></i> Podrás apartar tu turno en cuanto el reloj marque las 7:00 AM
         </div>
       </div>
     `;
@@ -300,6 +323,14 @@ async function confirmarReservaTurno(e) {
   const horaGuardada = turnoSeleccionadoHora;
   const index = turnosGlobales.findIndex(t => t.hora === horaGuardada);
   if (index === -1) return;
+
+  const horaActual = new Date().getHours();
+  if (horaActual < 7) {
+    alert("La agenda abre a partir de las 7:00 AM. Por favor espera a las 7:00 AM para apartar tu turno.");
+    cerrarBookingModal();
+    renderizarTurnos();
+    return;
+  }
 
   if (turnosGlobales[index].ocupado) {
     alert(`¡Ups! El turno de las ${horaGuardada} ya está ocupado.`);
