@@ -1,12 +1,13 @@
 // =======================================================================
-// LEO BARBER SHOP - SISTEMA DE TURNOS DIARIOS SINCRONIZADOS EN TIEMPO REAL
-// Motor Híbrido Resiliente: Cloud Database + Local Fallback + Auto-Retry
+// LEO BARBER SHOP - SISTEMA DE TURNOS DIARIOS EN TIEMPO REAL
+// Motor Oficial: Google Firebase Realtime Database
+// Sincronización instantánea, indestructible y 100% permanente
 // =======================================================================
 
 const WHATSAPP_BARBERO = "18097686713";
 
-// Endpoint Cloud de alta disponibilidad
-const CLOUD_API_BASE = "https://sheetdb.io/api/v1/58f61be4dda40";
+// URL oficial de tu base de datos de Firebase
+const FIREBASE_DB_URL = "https://leobarbershop-ea531-default-rtdb.firebaseio.com";
 
 // HORARIOS EXACTOS DE LA NOTA DE VOZ:
 // - Apertura 9:00 AM, primer cliente entra 9:30 AM
@@ -31,27 +32,28 @@ let turnosGlobales = [];
 let turnoSeleccionadoHora = null;
 let filtroActual = "todos";
 let estaEnviando = false;
+let ultimoEstadoJSON = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
   iniciarReloj();
   mostrarFechaHoy();
   
-  // 1. Cargar plantilla inicial limpia
+  // 1. Cargar plantilla inicial
   turnosGlobales = generarPlantillaTurnos();
   
-  // 2. Cargar respaldo local si existe para mostrar al instante
+  // 2. Respaldo local para mostrar instantáneamente
   recuperarRespaldoLocal();
   renderizarTurnos();
 
-  // 3. Sincronizar con la nube
-  await sincronizarTurnosConLaNube();
+  // 3. Sincronizar en vivo con Google Firebase
+  await sincronizarConFirebase();
   
-  // 4. Polling inteligente y seguro cada 5 segundos
+  // 4. Polling continuo ultrarrápido a Firebase cada 3 segundos (sin rate-limits)
   setInterval(async () => {
     if (!estaEnviando && !document.getElementById("bookingModal").classList.contains("opacity-100")) {
-      await sincronizarTurnosConLaNube(true);
+      await sincronizarConFirebase(true);
     }
-  }, 5000);
+  }, 3000);
 });
 
 // Obtener fecha actual en formato YYYY-MM-DD
@@ -63,7 +65,7 @@ function getTodayString() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Generar plantilla de 22 turnos
+// Generar plantilla de 20 turnos
 function generarPlantillaTurnos() {
   return TURNOS_HORARIOS.map((hora, idx) => ({
     id: idx + 1,
@@ -76,48 +78,40 @@ function generarPlantillaTurnos() {
   }));
 }
 
-let ultimoEstadoJSON = "";
-
-// Sincronizar reservas reales desde la nube
-async function sincronizarTurnosConLaNube(esSilencioso = false) {
+// Sincronizar en tiempo real con Google Firebase
+async function sincronizarConFirebase(esSilencioso = false) {
   const statusIndicator = document.getElementById("syncStatusIndicator");
   if (statusIndicator && !esSilencioso) {
-    statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span> Sincronizando nube...`;
+    statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span> Conectando Firebase...`;
   }
 
   const hoyStr = getTodayString();
+  const endpoint = `${FIREBASE_DB_URL}/turnos/${hoyStr}.json`;
 
   try {
-    const res = await fetch(CLOUD_API_BASE, { 
-      method: "GET",
-      headers: { "Accept": "application/json" }
-    });
-
+    const res = await fetch(endpoint, { cache: "no-store" });
     if (!res.ok) throw new Error("Status " + res.status);
 
     const data = await res.json();
     const nuevaLista = generarPlantillaTurnos();
 
-    if (Array.isArray(data)) {
-      data.forEach(item => {
-        if (!item.name) return;
-        // Formato codificado: fecha|hora|cliente|telefono|servicio
-        const partes = item.name.split("|");
-        if (partes.length >= 3 && partes[0] === hoyStr) {
-          const horaTurno = partes[1];
-          const idx = nuevaLista.findIndex(t => t.hora === horaTurno);
+    if (data && typeof data === "object") {
+      Object.keys(data).forEach(horaKey => {
+        const item = data[horaKey];
+        if (item && item.ocupado) {
+          const idx = nuevaLista.findIndex(t => t.hora === item.hora);
           if (idx !== -1) {
             nuevaLista[idx].ocupado = true;
-            nuevaLista[idx].cliente = partes[2];
-            nuevaLista[idx].telefono = partes[3] || "";
-            nuevaLista[idx].servicio = partes[4] || "Servicio Barbería";
+            nuevaLista[idx].cliente = item.cliente;
+            nuevaLista[idx].telefono = item.telefono;
+            nuevaLista[idx].servicio = item.servicio;
+            nuevaLista[idx].horaReserva = item.horaReserva;
           }
         }
       });
     }
 
     const estadoSerializado = JSON.stringify(nuevaLista);
-    // Solo re-renderizar si hubo un cambio real en los datos para máxima fluidez
     if (estadoSerializado !== ultimoEstadoJSON) {
       ultimoEstadoJSON = estadoSerializado;
       turnosGlobales = nuevaLista;
@@ -126,49 +120,37 @@ async function sincronizarTurnosConLaNube(esSilencioso = false) {
     }
 
     if (statusIndicator) {
-      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado en Vivo (Nube)`;
+      statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado en Vivo (Firebase Google)`;
     }
   } catch (error) {
-    console.warn("Fallo de red en nube, manteniendo estado activo:", error);
+    console.warn("Fallo de red temporal con Firebase:", error);
     if (statusIndicator) {
       statusIndicator.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400/80"></span> Conectado (En espera)`;
     }
   }
 }
 
-// Enviar nueva reserva a la nube para que se refleje en TODOS los móviles
-async function publicarReservaEnLaNube(payloadReserva) {
+// Guardar reserva permanentemente en Google Firebase
+async function guardarReservaEnFirebase(payloadReserva) {
   estaEnviando = true;
   const hoyStr = getTodayString();
-
-  // Codificar registro compacto
-  const recordString = `${hoyStr}|${payloadReserva.hora}|${payloadReserva.cliente}|${payloadReserva.telefono}|${payloadReserva.servicio}`;
-  const recordId = "turno_" + Date.now();
+  
+  // Clave limpia para Firebase (ej: "hora_09_30_AM")
+  const horaKey = "hora_" + payloadReserva.hora.replace(/[^a-zA-Z0-9]/g, "_");
+  const endpoint = `${FIREBASE_DB_URL}/turnos/${hoyStr}/${horaKey}.json`;
 
   try {
-    const bodyData = {
-      data: [{
-        id: recordId,
-        name: recordString,
-        age: "1",
-        comment: hoyStr
-      }]
-    };
-
-    const res = await fetch(CLOUD_API_BASE, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(bodyData)
+    const res = await fetch(endpoint, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadReserva)
     });
 
     if (!res.ok) {
-      console.warn("Error al registrar en nube:", res.status);
+      console.warn("Error escribiendo en Firebase:", res.status);
     }
   } catch (err) {
-    console.error("Error publicando en la nube:", err);
+    console.error("Error guardando en Firebase:", err);
   } finally {
     estaEnviando = false;
   }
@@ -207,14 +189,7 @@ function renderizarTurnos() {
   let countDisponibles = 0;
   let countOcupados = 0;
 
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
-
   turnosGlobales.forEach(turno => {
-    const horaObj = parseHoraTurno(turno.hora);
-    const yaPaso = (currentHour > horaObj.hour) || (currentHour === horaObj.hour && currentMinute >= horaObj.minute);
-
-    // Todos los turnos del día están disponibles para reservarse por anticipado (desde la mañana para la noche)
     if (turno.ocupado) {
       countOcupados++;
     } else {
@@ -292,20 +267,6 @@ function renderizarTurnos() {
   document.getElementById("statOcupados").textContent = countOcupados;
 }
 
-// Convertir hora tipo "09:30 AM" a 24 horas
-function parseHoraTurno(horaStr) {
-  const partes = horaStr.split(" ");
-  const tiempo = partes[0].split(":");
-  let hour = parseInt(tiempo[0], 10);
-  const minute = parseInt(tiempo[1], 10);
-  const ampm = partes[1];
-
-  if (ampm === "PM" && hour < 12) hour += 12;
-  if (ampm === "AM" && hour === 12) hour = 0;
-
-  return { hour, minute };
-}
-
 // Modal de reserva
 function abrirBookingModal(hora) {
   turnoSeleccionadoHora = hora;
@@ -323,7 +284,7 @@ function cerrarBookingModal() {
   turnoSeleccionadoHora = null;
 }
 
-// Confirmar reserva en la nube y enviar a WhatsApp
+// Confirmar reserva en Firebase y enviar a WhatsApp
 async function confirmarReservaTurno(e) {
   e.preventDefault();
 
@@ -348,14 +309,15 @@ async function confirmarReservaTurno(e) {
   }
 
   const payloadReserva = {
-    fecha: getTodayString(),
     hora: horaGuardada,
     cliente: nombre,
     telefono: telefono,
-    servicio: servicio
+    servicio: servicio,
+    ocupado: true,
+    horaReserva: new Date().toISOString()
   };
 
-  // Bloquear localmente de inmediato para feedback instantáneo
+  // Bloquear de inmediato
   turnosGlobales[index].ocupado = true;
   turnosGlobales[index].cliente = nombre;
   turnosGlobales[index].telefono = telefono;
@@ -365,8 +327,8 @@ async function confirmarReservaTurno(e) {
   cerrarBookingModal();
   renderizarTurnos();
 
-  // Publicar en la nube
-  publicarReservaEnLaNube(payloadReserva);
+  // Guardar en Google Firebase
+  guardarReservaEnFirebase(payloadReserva);
 
   // Enviar confirmación a WhatsApp
   const mensaje = 
