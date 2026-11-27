@@ -212,14 +212,21 @@ function renderizarTurnos() {
   let countDisponibles = 0;
   let countOcupados = 0;
 
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+
   turnosGlobales.forEach(turno => {
+    const horaObj = parseHoraTurno(turno.hora);
+    // Si la hora ya pasó en el reloj de hoy
+    const yaPaso = (currentHour > horaObj.hour) || (currentHour === horaObj.hour && currentMinute >= horaObj.minute);
+
     if (turno.ocupado) {
       countOcupados++;
-    } else {
+    } else if (!yaPaso) {
       countDisponibles++;
     }
 
-    if (filtroActual === "disponibles" && turno.ocupado) return;
+    if (filtroActual === "disponibles" && (turno.ocupado || yaPaso)) return;
     if (filtroActual === "ocupados" && !turno.ocupado) return;
 
     const card = document.createElement("div");
@@ -255,8 +262,33 @@ function renderizarTurnos() {
           <span class="text-rose-400 font-bold">Llegar 10 min antes</span>
         </div>
       `;
+    } else if (yaPaso) {
+      // SI LA HORA DEL TURNO YA PASÓ -> NO DISPONIBLE
+      card.classList.add("border-white/5", "opacity-40", "bg-black/30");
+      card.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="text-[11px] uppercase tracking-wider text-slate-500 font-bold block flex items-center gap-1">
+              <i class="fas fa-history"></i> Hora Pasada
+            </span>
+            <h3 class="text-xl font-black text-slate-500 font-heading mt-0.5">${turno.hora}</h3>
+          </div>
+          <span class="w-8 h-8 rounded-full bg-white/5 text-slate-500 flex items-center justify-center text-xs font-bold">
+            ⚪
+          </span>
+        </div>
+
+        <div class="my-3 py-2 px-3 bg-black/30 rounded-xl text-xs text-slate-500">
+          <i class="fas fa-ban mr-1"></i> No disponible
+          <p class="text-[11px] text-slate-600 mt-0.5">El horario de este turno ya transcurrió.</p>
+        </div>
+
+        <button disabled class="w-full py-2.5 bg-white/5 text-slate-600 rounded-xl text-xs font-bold cursor-not-allowed border border-white/5">
+          No Disponible
+        </button>
+      `;
     } else {
-      // DISPONIBLE: Se puede reservar en cualquier momento del día
+      // DISPONIBLE: Hora futura del día, libre para apartar
       card.classList.add("border-emerald-500/30", "hover:border-barber-gold", "hover:shadow-xl", "hover:shadow-barber-gold/5", "group");
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
@@ -288,6 +320,20 @@ function renderizarTurnos() {
 
   document.getElementById("statDisponibles").textContent = countDisponibles;
   document.getElementById("statOcupados").textContent = countOcupados;
+}
+
+// Convertir hora tipo "09:30 AM" a 24 horas
+function parseHoraTurno(horaStr) {
+  const partes = horaStr.split(" ");
+  const tiempo = partes[0].split(":");
+  let hour = parseInt(tiempo[0], 10);
+  const minute = parseInt(tiempo[1], 10);
+  const ampm = partes[1];
+
+  if (ampm === "PM" && hour < 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+
+  return { hour, minute };
 }
 
 // Modal de reserva
